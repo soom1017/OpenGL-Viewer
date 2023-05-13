@@ -182,18 +182,30 @@ def main():
     color_loc_mat = glGetUniformLocation(shader_for_mat, 'color')
 
     # load materials for hierarchical model
-    baby = Material(os.path.join(PROJECT_DIR, 'obj_files', 'baby.obj'))
-    cradle = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Cradle.obj'))
-    
+    tray = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Tray.obj'))
+    spinning_top1 = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Top_jack.obj'))
+    spinning_top2 = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Jack_in_the_Box.obj'))
+    sword = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Sword.obj'))
+
     # prepare vaos
     vao_center_frame = prepare_vao_frame(coordinate_axis=True)
     vao_frame_grid = prepare_vao_frame(coordinate_axis=False)
-    vao_baby = prepare_vao_material(baby)
-    vao_cradle = prepare_vao_material(cradle)
+    vao_tray = prepare_vao_material(tray)
+    vao_spinning_top1 = prepare_vao_material(spinning_top1)
+    vao_spinning_top2 = prepare_vao_material(spinning_top2)
+    vao_sword = prepare_vao_material(sword)
 
     # create a hierarchical model - Node(parent, shape_transform, color)
-    node_base = Node(None, glm.scale((.1,.1,.1)), glm.vec3(0.8,0.4,0))
-    node_baby = Node(node_base, glm.translate((0,.2,.5)) * glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.02, .02, .02)), glm.vec3(0.9843,0.8078,0.6941))
+    node_base = Node(None, glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.3, .3, .3)), glm.vec3(0,0,0.5))
+    node_spinning_top1 = Node(node_base, glm.translate((-1.05,0.1,0.7)) * glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.1, .1, .1)), glm.vec3(0.9294, 0.6745, 0.6941))
+    node_spinning_top2 = Node(node_base, glm.translate((0.3,0.08,-0.1)) * glm.scale((.25, .25, .25)), glm.vec3(0.2902, 0.6588, 0.8471))
+    nodes_sword = []
+    for i in range(3):
+        node_sword = Node(node_spinning_top1, glm.rotate(np.radians(90), (1, 0, 0)) * glm.scale((0.008, 0.008, 0.008)), glm.vec3(1, 0, 0))
+        nodes_sword.append(node_sword)
+    for i in range(3):
+        node_sword = Node(node_spinning_top2, glm.rotate(np.radians(90), (1, 0, 0)) * glm.scale((0.008, 0.008, 0.008)), glm.vec3(1, 0, 0))
+        nodes_sword.append(node_sword)
 
     # loop until the user closes the window
     while not glfwWindowShouldClose(window):
@@ -216,12 +228,31 @@ def main():
         I = glm.mat4()
         draw_center_frame(vao_center_frame, P*V*I, MVP_loc)
         draw_frame_grid(vao_frame_grid, P*V*I, MVP_loc)
+
         if g_single_material:
             draw_single_material(g_vao_single_material, P*V*I, MVP_loc)
         elif g_hierarchical_mode:
+            t = glfwGetTime()
+
+            # set local transformations of each node
+            node_base.set_transform(glm.rotate(np.radians(np.sin(t) * 30), (1,0,0)))
+            node_spinning_top1.set_transform(glm.rotate(t * 1, (0,1,0)) * glm.translate((np.sin(t) * 0.4, 0, np.sin(t) * 0.4)) * glm.rotate(t * 1, (0,1,0)))
+            node_spinning_top2.set_transform(glm.rotate(t * 2, (0,1,0)) * glm.translate((np.cos(t) * 0.8, 0, np.cos(t) * 0.8)) * glm.rotate(t * 2, (0,1,0)))
+            for i in range(6):
+                sign1 = 1 if i % 2 == 0 else -1
+                sign2 = 1 if i % 3 == 0 else -1
+                nodes_sword[i].set_transform(glm.translate((sign1 * 0.15, 0.8 + sign1 * np.sin(t * 5) * 0.1, sign1 * sign2 * 0.15)))
+
+            # recursively update global transformations of all nodes
+            node_base.update_tree_global_transform()
+            
             glUseProgram(shader_for_mat)
-            draw_node(vao_cradle, node_base, cradle.index_count, P*V, MVP_loc_mat, color_loc_mat)
-            draw_node(vao_baby, node_baby, baby.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            
+            draw_node(vao_tray, node_base, tray.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            for i in range(6):
+                draw_node(vao_sword, nodes_sword[i], sword.index_count, P*V, MVP_loc_mat, color_loc_mat)
 
         # swap front and back buffers
         glfwSwapBuffers(window)
