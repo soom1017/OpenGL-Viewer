@@ -50,7 +50,7 @@ class Utils:
             P = glm.ortho(-ortho_width*.5,ortho_width*.5, -ortho_height*.5,ortho_height*.5, -10,10)
         else:
             aspect = width / height
-            P = glm.perspective(glm.radians(45), aspect, 1, 10)
+            P = glm.perspective(45, aspect, 1, 20)
         return P
 
     def key_callback(self, window, key, scancode, action, mods):
