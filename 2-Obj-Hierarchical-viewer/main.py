@@ -16,97 +16,98 @@ g_vao_single_material = None
 g_hierarchical_mode = False
 g_wireframe_mode = False
 
-class Utils:
-    def __init__(self) -> None:
-        # Manage inputs
-        self.mouse_left_down = False
-        self.mouse_right_down = False
-        self.is_orthogonal = False      # False: perspective (default) / True: orthogonal projection mode
+# Manage inputs
+g_mouse_left_down = False
+g_mouse_right_down = False
+g_is_orthogonal = False      # False: perspective (default) / True: orthogonal projection mode
+
+# Variables related to the view, projection
+g_azimuth = 60
+g_elevation = 30
+g_x_orbit_in, g_y_orbit_in = 0., 0.
+g_x_pan_in, g_y_pan_in = 0., 0.
+g_zoom = 5.
+g_pan_vertical, g_pan_horizontal = 0., 0.
+
+g_cam_up = glm.normalize(glm.vec3(- np.sin(np.radians(30)) * np.sin(np.radians(60)), np.cos(np.radians(30)), - np.sin(np.radians(30)) * np.cos(np.radians(60))))
+g_cam_front = -1 * glm.normalize(glm.vec3(np.cos(np.radians(30)) * np.sin(np.radians(60)), np.sin(np.radians(30)), np.cos(np.radians(30)) * np.cos(np.radians(60))))
+g_cam_target = g_cam_up * g_pan_vertical * .1 + glm.cross(g_cam_front, g_cam_up) * g_pan_horizontal * .1
         
-        # Variables related to the view, projection
-        self.azimuth = 60
-        self.elevation = 30
-        self.x_orbit_in, self.y_orbit_in = 0., 0.
-        self.x_pan_in, self.y_pan_in = 0., 0.
-        self.zoom = 5.
-        self.pan_vertical, self.pan_horizontal = 0., 0.
-        
-        self.cam_up = glm.normalize(glm.vec3(- np.sin(np.radians(30)) * np.sin(np.radians(60)), np.cos(np.radians(30)), - np.sin(np.radians(30)) * np.cos(np.radians(60))))
-        self.cam_front = -1 * glm.normalize(glm.vec3(np.cos(np.radians(30)) * np.sin(np.radians(60)), np.sin(np.radians(30)), np.cos(np.radians(30)) * np.cos(np.radians(60))))
-        self.cam_target = self.cam_up * self.pan_vertical * .1 + glm.cross(self.cam_front, self.cam_up) * self.pan_horizontal * .1
-        
-    def get_view_matrix(self):
-        view_pos = self.cam_target - self.cam_front * self.zoom
-        V = glm.lookAt(view_pos, self.cam_target, self.cam_up)
-        return view_pos, V
+def get_view_matrix():
+    view_pos = g_cam_target - g_cam_front * g_zoom
+    V = glm.lookAt(view_pos, g_cam_target, g_cam_up)
+    return view_pos, V
     
-    def get_projection_matrix(self):
-        width, height = 3200, 3200
-        glViewport(0, 0, width, height)
+def get_projection_matrix():
+    width, height = 3200, 3200
+    glViewport(0, 0, width, height)
 
-        if self.is_orthogonal:
-            ortho_height = 10.
-            ortho_width = ortho_height * width/height
-            P = glm.ortho(-ortho_width*.5,ortho_width*.5, -ortho_height*.5,ortho_height*.5, -10,10)
-        else:
-            aspect = width / height
-            P = glm.perspective(45, aspect, 1, 20)
-        return P
+    if g_is_orthogonal:
+        ortho_height = 10.
+        ortho_width = ortho_height * width/height
+        P = glm.ortho(-ortho_width*.5,ortho_width*.5, -ortho_height*.5,ortho_height*.5, -10,10)
+    else:
+        aspect = width / height
+        P = glm.perspective(45, aspect, 1, 20)
+    return P
 
-    def key_callback(self, window, key, scancode, action, mods):
-        global g_single_material, g_hierarchical_mode, g_wireframe_mode
-        if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        else:
-            if action==GLFW_PRESS or action==GLFW_REPEAT:
-                if key==GLFW_KEY_V:
-                    self.is_orthogonal = not self.is_orthogonal
-                if key==GLFW_KEY_H:
-                    g_single_material = None
-                    g_hierarchical_mode = True
-                if key==GLFW_KEY_Z:
-                    g_wireframe_mode = not g_wireframe_mode
-                if key==GLFW_KEY_1:
-                    print(f"self.cam_front: {self.cam_target - self.cam_front * self.zoom}, self.cam_target: {self.cam_target}, self.cam_up: {self.cam_up}")
+def key_callback(window, key, scancode, action, mods):
+    global g_is_orthogonal, g_single_material, g_hierarchical_mode, g_wireframe_mode
+    if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    else:
+        if action==GLFW_PRESS or action==GLFW_REPEAT:
+            if key==GLFW_KEY_V:
+                g_is_orthogonal = not g_is_orthogonal
+            if key==GLFW_KEY_H:
+                g_single_material = None
+                g_hierarchical_mode = True
+            if key==GLFW_KEY_Z:
+                g_wireframe_mode = not g_wireframe_mode
+            if key==GLFW_KEY_1:
+                print(f"g_cam_front: {g_cam_target - g_cam_front * g_zoom}, g_cam_target: {g_cam_target}, g_cam_up: {g_cam_up}")
 
-    def cursor_callback(self, window, xpos, ypos):
-        # Orbit: Rotate the camera around the target point.
-        if self.mouse_left_down:
-            self.azimuth -= (xpos - self.x_orbit_in)*0.05
-            self.elevation += (ypos - self.y_orbit_in)*0.05
-            self.x_orbit_in, self.y_orbit_in = xpos, ypos
-            
-            azi = np.radians(self.azimuth)
-            ele = np.radians(self.elevation)
-            self.cam_up = glm.normalize(glm.vec3(- np.sin(ele) * np.sin(azi), np.cos(ele), - np.sin(ele) * np.cos(azi)))
-            self.cam_front = -1 * glm.normalize(glm.vec3(np.cos(ele) * np.sin(azi), np.sin(ele), np.cos(ele) * np.cos(azi)))
-
-        # Pan: Move both the target point and camera.
-        if self.mouse_right_down:
-            self.pan_horizontal -= (xpos - self.x_pan_in) * 0.05
-            self.pan_vertical += (ypos - self.y_pan_in) * 0.05
-            self.x_pan_in, self.y_pan_in = xpos, ypos
-            
-            self.cam_target = self.cam_up * self.pan_vertical * .1 + glm.cross(self.cam_front, self.cam_up) * self.pan_horizontal * .1
-
-    def button_callback(self, window, button, action, mod):
-        if button==GLFW_MOUSE_BUTTON_LEFT:
-            if action==GLFW_PRESS:
-                self.mouse_left_down = True
-                self.x_orbit_in, self.y_orbit_in = glfwGetCursorPos(window)
-            elif action==GLFW_RELEASE:
-                self.mouse_left_down = False
-
-        elif button==GLFW_MOUSE_BUTTON_RIGHT:
-            if action==GLFW_PRESS:
-                self.mouse_right_down = True
-                self.x_pan_in, self.y_pan_in = glfwGetCursorPos(window)
-            elif action==GLFW_RELEASE:
-                self.mouse_right_down = False
+def cursor_callback(window, xpos, ypos):
+    global g_azimuth, g_elevation, g_pan_horizontal, g_pan_vertical, g_cam_up, g_cam_front, g_cam_target, g_x_orbit_in, g_y_orbit_in, g_x_pan_in, g_y_pan_in
+    # Orbit: Rotate the camera around the target point.
+    if g_mouse_left_down:
+        g_azimuth -= (xpos - g_x_orbit_in)*0.05
+        g_elevation += (ypos - g_y_orbit_in)*0.05
+        g_x_orbit_in, g_y_orbit_in = xpos, ypos
         
-    def scroll_callback(self, window, xoffset, yoffset):
-        # Zoom: Move the camera forward the target point (zoom in) and backward away from the target point (zoom out).
-        self.zoom = max(self.zoom - yoffset * .1, 1.)
+        azi = np.radians(g_azimuth)
+        ele = np.radians(g_elevation)
+        g_cam_up = glm.normalize(glm.vec3(- np.sin(ele) * np.sin(azi), np.cos(ele), - np.sin(ele) * np.cos(azi)))
+        g_cam_front = -1 * glm.normalize(glm.vec3(np.cos(ele) * np.sin(azi), np.sin(ele), np.cos(ele) * np.cos(azi)))
+
+    # Pan: Move both the target point and camera.
+    if g_mouse_right_down:
+        g_pan_horizontal -= (xpos - g_x_pan_in) * 0.05
+        g_pan_vertical += (ypos - g_y_pan_in) * 0.05
+        g_x_pan_in, g_y_pan_in = xpos, ypos
+        
+        g_cam_target = g_cam_up * g_pan_vertical * .1 + glm.cross(g_cam_front, g_cam_up) * g_pan_horizontal * .1
+
+def button_callback(window, button, action, mod):
+    global g_mouse_left_down, g_mouse_right_down, g_x_orbit_in, g_y_orbit_in, g_x_pan_in, g_y_pan_in
+    if button==GLFW_MOUSE_BUTTON_LEFT:
+        if action==GLFW_PRESS:
+            g_mouse_left_down = True
+            g_x_orbit_in, g_y_orbit_in = glfwGetCursorPos(window)
+        elif action==GLFW_RELEASE:
+            g_mouse_left_down = False
+
+    elif button==GLFW_MOUSE_BUTTON_RIGHT:
+        if action==GLFW_PRESS:
+            g_mouse_right_down = True
+            g_x_pan_in, g_y_pan_in = glfwGetCursorPos(window)
+        elif action==GLFW_RELEASE:
+            g_mouse_right_down = False
+    
+def scroll_callback(window, xoffset, yoffset):
+    global g_zoom
+    # Zoom: Move the camera forward the target point (zoom in) and backward away from the target point (zoom out).
+    g_zoom = max(g_zoom - yoffset * .1, 1.)
 
 def drag_and_drop_callback(window, paths):
     global g_single_material, g_vao_single_material
@@ -175,11 +176,10 @@ def main():
     glfwMakeContextCurrent(window)
 
     # register event callbacks
-    utils = Utils()
-    glfwSetKeyCallback(window, utils.key_callback)
-    glfwSetCursorPosCallback(window, utils.cursor_callback)
-    glfwSetMouseButtonCallback(window, utils.button_callback)
-    glfwSetScrollCallback(window, utils.scroll_callback)
+    glfwSetKeyCallback(window, key_callback)
+    glfwSetCursorPosCallback(window, cursor_callback)
+    glfwSetMouseButtonCallback(window, button_callback)
+    glfwSetScrollCallback(window, scroll_callback)
     glfwSetDropCallback(window, drag_and_drop_callback)
 
     # load shaders
@@ -234,8 +234,8 @@ def main():
         glUseProgram(shader_for_frame)
 
         # projection & view matrix
-        P = utils.get_projection_matrix()
-        view_pos, V = utils.get_view_matrix()
+        P = get_projection_matrix()
+        view_pos, V = get_view_matrix()
 
         M = glm.mat4()
         draw_center_frame(vao_center_frame, P*V*M, MVP_loc_frame)
