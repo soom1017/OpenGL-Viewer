@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 from vao import prepare_vao_frame, prepare_vao_material
-from shader import load_shaders, g_vertex_shader_src, g_fragment_shader_src, g_vertex_shader_src_color_uniform
+from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
 from obj_loader import Material
 from hierarchy import Node
 
@@ -36,8 +36,9 @@ class Utils:
         self.cam_target = self.cam_up * self.pan_vertical * .1 + glm.cross(self.cam_front, self.cam_up) * self.pan_horizontal * .1
         
     def get_view_matrix(self):
-        V = glm.lookAt(self.cam_target - self.cam_front * self.zoom, self.cam_target, self.cam_up)
-        return V
+        view_pos = self.cam_target - self.cam_front * self.zoom
+        V = glm.lookAt(view_pos, self.cam_target, self.cam_up)
+        return view_pos, V
     
     def get_projection_matrix(self):
         width, height = 3200, 3200
@@ -134,20 +135,24 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_single_material(vao, VP, MVP_loc, color_loc):
-    MVP = VP * glm.scale((0.5, 0.5, 0.5))
+def draw_single_material(vao, VP, M_loc, MVP_loc, color_loc):
+    M = glm.scale((0.5, 0.5, 0.5))
+    MVP = VP * M
 
     glBindVertexArray(vao)
+    glUniformMatrix4fv(M_loc, 1, GL_FALSE, glm.value_ptr(M))
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(color_loc, 1, 1, 1)
     
     glDrawElements(GL_TRIANGLES, g_single_material.index_count, GL_UNSIGNED_INT, None)
 
-def draw_node(vao, node, idx_count, VP, MVP_loc, color_loc):
-    MVP = VP * node.get_global_transform() * node.get_shape_transform()
+def draw_node(vao, node, idx_count, VP, M_loc, MVP_loc, color_loc):
+    M = node.get_global_transform() * node.get_shape_transform()
+    MVP = VP * M
     color = node.get_color()
 
     glBindVertexArray(vao)
+    glUniformMatrix4fv(M_loc, 1, GL_FALSE, glm.value_ptr(M))
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(color_loc, color.r, color.g, color.b)
     
@@ -178,13 +183,15 @@ def main():
     glfwSetDropCallback(window, drag_and_drop_callback)
 
     # load shaders
-    shader_program = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
-    shader_for_mat = load_shaders(g_vertex_shader_src_color_uniform, g_fragment_shader_src)
+    shader_for_frame = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
+    shader_for_mat = load_shaders(g_vertex_shader_src_normal, g_fragment_shader_src_normal)
 
     # get uniform locations
-    MVP_loc = glGetUniformLocation(shader_program, 'MVP')
+    MVP_loc_frame = glGetUniformLocation(shader_for_frame, 'MVP')
     MVP_loc_mat = glGetUniformLocation(shader_for_mat, 'MVP')
-    color_loc_mat = glGetUniformLocation(shader_for_mat, 'color')
+    color_loc_mat = glGetUniformLocation(shader_for_mat, 'material_color')
+    M_loc_mat = glGetUniformLocation(shader_for_mat, 'M')
+    view_pos_loc_mat = glGetUniformLocation(shader_for_mat, 'view_pos')
 
     # load materials for hierarchical model
     tray = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Tray.obj'))
@@ -224,20 +231,21 @@ def main():
         else:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
-        glUseProgram(shader_program)
+        glUseProgram(shader_for_frame)
 
         # projection & view matrix
         P = utils.get_projection_matrix()
-        V = utils.get_view_matrix()
+        view_pos, V = utils.get_view_matrix()
 
-        I = glm.mat4()
-        draw_center_frame(vao_center_frame, P*V*I, MVP_loc)
-        draw_frame_grid(vao_frame_grid, P*V*I, MVP_loc)
+        M = glm.mat4()
+        draw_center_frame(vao_center_frame, P*V*M, MVP_loc_frame)
+        draw_frame_grid(vao_frame_grid, P*V*M, MVP_loc_frame)
 
         glUseProgram(shader_for_mat)
+        glUniform3f(view_pos_loc_mat, view_pos.x, view_pos.y, view_pos.z)
 
         if g_single_material:
-            draw_single_material(g_vao_single_material, P*V*I, MVP_loc_mat, color_loc_mat)
+            draw_single_material(g_vao_single_material, P*V, M_loc_mat, MVP_loc_mat, color_loc_mat)
         elif g_hierarchical_mode:
             t = glfwGetTime()
 
@@ -253,11 +261,11 @@ def main():
             # recursively update global transformations of all nodes
             node_base.update_tree_global_transform()
             
-            draw_node(vao_tray, node_base, tray.index_count, P*V, MVP_loc_mat, color_loc_mat)
-            draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.index_count, P*V, MVP_loc_mat, color_loc_mat)
-            draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_tray, node_base, tray.index_count, P*V, M_loc_mat, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.index_count, P*V, M_loc_mat, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.index_count, P*V, M_loc_mat, MVP_loc_mat, color_loc_mat)
             for i in range(6):
-                draw_node(vao_sword, nodes_sword[i], sword.index_count, P*V, MVP_loc_mat, color_loc_mat)
+                draw_node(vao_sword, nodes_sword[i], sword.index_count, P*V, M_loc_mat, MVP_loc_mat, color_loc_mat)
 
         # swap front and back buffers
         glfwSwapBuffers(window)

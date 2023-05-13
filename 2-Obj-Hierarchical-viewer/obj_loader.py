@@ -24,7 +24,6 @@ class Material:
                     if line.startswith("v "):
                         v = line.split()[1:]
                         vertexes.append(list(map(float, v)))
-                        # vertexes.append([1, 1, 1]) # vertex color
                         
                     elif line.startswith("f "):
                         f = line.split()[1:]
@@ -56,13 +55,15 @@ class Material:
         print('----------------------------------------------------------')
         return vertexes, faces, normals
     
-    def get_vertex_pos(self):
+    def get_vertex_pos_and_normal(self):
         vertex_pos = np.array(self.v, dtype=np.float32)
-        vertex_pos = glm.array(vertex_pos)
-        return vertex_pos
+        vertex_normal = np.array(self.vn, dtype=np.float32)
+        result = glm.array(np.concatenate((vertex_pos, vertex_normal)))
+        return result
     
     def get_vertex_indices(self):
-        vertex_indices = np.array(self.f[0], dtype=np.uint32)
-        vertex_indices = glm.array(vertex_indices)
-        return vertex_indices    
+        vertex_index_pos = np.array(self.f[0], dtype=np.uint32)
+        vertex_index_normal = np.array(self.f[1], dtype=np.uint32)
+        result = glm.array(np.concatenate((vertex_index_pos, vertex_index_normal)))
+        return result   
     

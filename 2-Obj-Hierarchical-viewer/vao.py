@@ -44,7 +44,7 @@ def prepare_vao_frame(coordinate_axis=False):
 
 def prepare_vao_material(material):
     # prepare vertex data (in main memory)
-    vertices = material.get_vertex_pos()
+    vertices = material.get_vertex_pos_and_normal()
     # prepare index data (in main memory)
     indices = material.get_vertex_indices()
 
@@ -70,8 +70,8 @@ def prepare_vao_material(material):
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), None)
     glEnableVertexAttribArray(0)
 
-    # configure vertex colors
-    # glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * glm.sizeof(glm.float32), ctypes.c_void_p(3*glm.sizeof(glm.float32)))
-    # glEnableVertexAttribArray(1)
+    # configure vertex normals
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), ctypes.c_void_p(material.index_count*3*glm.sizeof(glm.float32)))
+    glEnableVertexAttribArray(1)
 
     return VAO
