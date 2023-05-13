@@ -20,12 +20,12 @@ class Material:
                         
                     elif line.startswith("f "):
                         f = line.split()[1:]
-
-                        for face in f:
-                            face = face.split('/')
-                            for i in range(len(face)):
-                                if face[i] != '':
-                                    faces[i].append(int(face[i]) - 1)
+                        for idx in range(1, len(f) - 1):
+                            for i in [0, idx, idx+1]:
+                                face = f[i].split('/')
+                                for j in range(len(face)):
+                                    if face[j] != '':
+                                        faces[j].append(int(face[j]) - 1)
                         
                     elif line.startswith("vn "):
                         vn = line.split()[1:]
