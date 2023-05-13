@@ -134,9 +134,13 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_single_material(vao, MVP, MVP_loc):
-    glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
+def draw_single_material(vao, VP, MVP_loc, color_loc):
+    MVP = VP * glm.scale((0.5, 0.5, 0.5))
+
     glBindVertexArray(vao)
+    glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
+    glUniform3f(color_loc, 1, 1, 1)
+    
     glDrawElements(GL_TRIANGLES, g_single_material.index_count, GL_UNSIGNED_INT, None)
 
 def draw_node(vao, node, idx_count, VP, MVP_loc, color_loc):
@@ -146,6 +150,7 @@ def draw_node(vao, node, idx_count, VP, MVP_loc, color_loc):
     glBindVertexArray(vao)
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(color_loc, color.r, color.g, color.b)
+    
     glDrawElements(GL_TRIANGLES, idx_count, GL_UNSIGNED_INT, None)
 
 def main():
@@ -229,8 +234,10 @@ def main():
         draw_center_frame(vao_center_frame, P*V*I, MVP_loc)
         draw_frame_grid(vao_frame_grid, P*V*I, MVP_loc)
 
+        glUseProgram(shader_for_mat)
+
         if g_single_material:
-            draw_single_material(g_vao_single_material, P*V*I, MVP_loc)
+            draw_single_material(g_vao_single_material, P*V*I, MVP_loc_mat, color_loc_mat)
         elif g_hierarchical_mode:
             t = glfwGetTime()
 
@@ -245,8 +252,6 @@ def main():
 
             # recursively update global transformations of all nodes
             node_base.update_tree_global_transform()
-            
-            glUseProgram(shader_for_mat)
             
             draw_node(vao_tray, node_base, tray.index_count, P*V, MVP_loc_mat, color_loc_mat)
             draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.index_count, P*V, MVP_loc_mat, color_loc_mat)

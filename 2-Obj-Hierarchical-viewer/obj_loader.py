@@ -24,7 +24,7 @@ class Material:
                     if line.startswith("v "):
                         v = line.split()[1:]
                         vertexes.append(list(map(float, v)))
-                        vertexes.append([1, 1, 1]) # vertex color
+                        # vertexes.append([1, 1, 1]) # vertex color
                         
                     elif line.startswith("f "):
                         f = line.split()[1:]
