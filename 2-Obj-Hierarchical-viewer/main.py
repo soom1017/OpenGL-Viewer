@@ -2,13 +2,18 @@ from OpenGL.GL import *
 from glfw.GLFW import *
 import glm
 import numpy as np
+import os
 
 from vao import prepare_vao_frame, prepare_vao_material
-from shader import load_shaders, g_vertex_shader_src, g_fragment_shader_src
+from shader import load_shaders, g_vertex_shader_src, g_fragment_shader_src, g_vertex_shader_src_color_uniform
 from obj_loader import Material
+from hierarchy import Node
 
-g_material = None
-g_vao_material = None
+PROJECT_DIR = os.path.dirname( os.path.abspath( __file__ ) )
+
+g_single_material = None
+g_vao_single_material = None
+g_hierarchical_mode = False
 
 class Utils:
     def __init__(self) -> None:
@@ -47,7 +52,7 @@ class Utils:
         return P
 
     def key_callback(self, window, key, scancode, action, mods):
-        global g_material
+        global g_single_material, g_hierarchical_mode
         if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         else:
@@ -55,7 +60,8 @@ class Utils:
                 if key==GLFW_KEY_V:
                     self.is_orthogonal = not self.is_orthogonal
                 if key==GLFW_KEY_H:
-                    g_material = None
+                    g_single_material = None
+                    g_hierarchical_mode = True
                 if key==GLFW_KEY_1:
                     print(f"self.cam_front: {self.cam_target - self.cam_front * self.zoom}, self.cam_target: {self.cam_target}, self.cam_up: {self.cam_up}")
 
@@ -99,9 +105,9 @@ class Utils:
         self.zoom = max(self.zoom - yoffset * .1, 1.)
 
 def drag_and_drop_callback(window, paths):
-    global g_material, g_vao_material
-    g_material = Material(paths[0])
-    g_vao_material = prepare_vao_material(g_material)
+    global g_single_material, g_vao_single_material
+    g_single_material = Material(paths[0])
+    g_vao_single_material = prepare_vao_material(g_single_material)
 
 def draw_center_frame(vao, MVP, MVP_loc):
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
@@ -125,10 +131,19 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_material(vao, MVP, MVP_loc):
+def draw_single_material(vao, MVP, MVP_loc):
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
     glBindVertexArray(vao)
-    glDrawElements(GL_TRIANGLES, g_material.index_count, GL_UNSIGNED_INT, None)
+    glDrawElements(GL_TRIANGLES, g_single_material.index_count, GL_UNSIGNED_INT, None)
+
+def draw_node(vao, node, idx_count, VP, MVP_loc, color_loc):
+    MVP = VP * node.get_global_transform() * node.get_shape_transform()
+    color = node.get_color()
+
+    glBindVertexArray(vao)
+    glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
+    glUniform3f(color_loc, color.r, color.g, color.b)
+    glDrawElements(GL_TRIANGLES, idx_count, GL_UNSIGNED_INT, None)
 
 def main():
     # initialize glfw
@@ -156,13 +171,26 @@ def main():
 
     # load shaders
     shader_program = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
+    shader_for_mat = load_shaders(g_vertex_shader_src_color_uniform, g_fragment_shader_src)
 
     # get uniform locations
     MVP_loc = glGetUniformLocation(shader_program, 'MVP')
+    MVP_loc_mat = glGetUniformLocation(shader_for_mat, 'MVP')
+    color_loc_mat = glGetUniformLocation(shader_for_mat, 'color')
+
+    # load materials for hierarchical model
+    baby = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Male.obj'))
+    cradle = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Cradle.obj'))
     
     # prepare vaos
     vao_center_frame = prepare_vao_frame(coordinate_axis=True)
     vao_frame_grid = prepare_vao_frame(coordinate_axis=False)
+    vao_baby = prepare_vao_material(baby)
+    vao_cradle = prepare_vao_material(cradle)
+
+    # create a hierarchical model - Node(parent, shape_transform, color)
+    node_base = Node(None, glm.scale((.1,.1,.1)), glm.vec3(0.59,0.29,0))
+    node_baby = Node(node_base, glm.translate((.5,0,.01)) * glm.scale((.1, .1, .1)), glm.vec3(1,0,0))
 
     # loop until the user closes the window
     while not glfwWindowShouldClose(window):
@@ -181,9 +209,12 @@ def main():
         I = glm.mat4()
         draw_center_frame(vao_center_frame, P*V*I, MVP_loc)
         draw_frame_grid(vao_frame_grid, P*V*I, MVP_loc)
-        if g_material:
-            draw_material(g_vao_material, P*V*I, MVP_loc)
-        
+        if g_single_material:
+            draw_single_material(g_vao_single_material, P*V*I, MVP_loc)
+        elif g_hierarchical_mode:
+            glUseProgram(shader_for_mat)
+            draw_node(vao_cradle, node_base, cradle.index_count, P*V, MVP_loc_mat, color_loc_mat)
+            draw_node(vao_baby, node_baby, baby.index_count, P*V, MVP_loc_mat, color_loc_mat)
 
         # swap front and back buffers
         glfwSwapBuffers(window)
