@@ -14,6 +14,7 @@ PROJECT_DIR = os.path.dirname( os.path.abspath( __file__ ) )
 g_single_material = None
 g_vao_single_material = None
 g_hierarchical_mode = False
+g_wireframe_mode = False
 
 class Utils:
     def __init__(self) -> None:
@@ -52,7 +53,7 @@ class Utils:
         return P
 
     def key_callback(self, window, key, scancode, action, mods):
-        global g_single_material, g_hierarchical_mode
+        global g_single_material, g_hierarchical_mode, g_wireframe_mode
         if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         else:
@@ -62,6 +63,8 @@ class Utils:
                 if key==GLFW_KEY_H:
                     g_single_material = None
                     g_hierarchical_mode = True
+                if key==GLFW_KEY_Z:
+                    g_wireframe_mode = not g_wireframe_mode
                 if key==GLFW_KEY_1:
                     print(f"self.cam_front: {self.cam_target - self.cam_front * self.zoom}, self.cam_target: {self.cam_target}, self.cam_up: {self.cam_up}")
 
@@ -179,7 +182,7 @@ def main():
     color_loc_mat = glGetUniformLocation(shader_for_mat, 'color')
 
     # load materials for hierarchical model
-    baby = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Male.obj'))
+    baby = Material(os.path.join(PROJECT_DIR, 'obj_files', 'baby.obj'))
     cradle = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Cradle.obj'))
     
     # prepare vaos
@@ -189,16 +192,20 @@ def main():
     vao_cradle = prepare_vao_material(cradle)
 
     # create a hierarchical model - Node(parent, shape_transform, color)
-    node_base = Node(None, glm.scale((.1,.1,.1)), glm.vec3(0.59,0.29,0))
-    node_baby = Node(node_base, glm.translate((.5,0,.01)) * glm.scale((.1, .1, .1)), glm.vec3(1,0,0))
+    node_base = Node(None, glm.scale((.1,.1,.1)), glm.vec3(0.8,0.4,0))
+    node_baby = Node(node_base, glm.translate((0,.2,.5)) * glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.02, .02, .02)), glm.vec3(0.9843,0.8078,0.6941))
 
     # loop until the user closes the window
     while not glfwWindowShouldClose(window):
-        # render
-
         # enable depth test (we'll see details later)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glEnable(GL_DEPTH_TEST)
+
+        # render in "wireframe mode"
+        if g_wireframe_mode:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+        else:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
         glUseProgram(shader_program)
 
