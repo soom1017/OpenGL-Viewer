@@ -71,7 +71,7 @@ def prepare_vao_material(material):
     glEnableVertexAttribArray(0)
 
     # configure vertex normals
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), ctypes.c_void_p(material.index_count*3*glm.sizeof(glm.float32)))
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), ctypes.c_void_p(material.vertex_count*3*glm.sizeof(glm.float32)))
     glEnableVertexAttribArray(1)
 
     return VAO

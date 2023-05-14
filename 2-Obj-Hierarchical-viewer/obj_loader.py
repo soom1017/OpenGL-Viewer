@@ -9,6 +9,7 @@ class Material:
         # get vertex, face information from obj file
         self.v, self.f, self.vn = self.load_obj(filename)
         self.index_count = len(self.f[0])
+        self.vertex_count = len(self.v)
         
     def load_obj(self, filename):
         vertexes = []
