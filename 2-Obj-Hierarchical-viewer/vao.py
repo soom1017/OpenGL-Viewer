@@ -45,8 +45,6 @@ def prepare_vao_frame(coordinate_axis=False):
 def prepare_vao_material(material):
     # prepare vertex data (in main memory)
     vertices = material.get_vertex_pos_and_normal()
-    # prepare index data (in main memory)
-    indices = material.get_vertex_indices()
 
     # create and activate VAO (vertex array object)
     VAO = glGenVertexArrays(1)  # create a vertex array object ID and store it to VAO variable
@@ -56,22 +54,15 @@ def prepare_vao_material(material):
     VBO = glGenBuffers(1)   # create a buffer object ID and store it to VBO variable
     glBindBuffer(GL_ARRAY_BUFFER, VBO)  # activate VBO as a vertex buffer object
 
-    # create and activate EBO (element buffer object)
-    EBO = glGenBuffers(1)   # create a buffer object ID and store it to EBO variable
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)  # activate EBO as an element buffer object
-
     # copy vertex data to VBO
     glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices.ptr, GL_STATIC_DRAW) # allocate GPU memory for and copy vertex data to the currently bound vertex buffer
 
-    # copy index data to EBO
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices.ptr, GL_STATIC_DRAW) # allocate GPU memory for and copy index data to the currently bound element buffer
-
     # configure vertex positions
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), None)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * glm.sizeof(glm.float32), None)
     glEnableVertexAttribArray(0)
 
     # configure vertex normals
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), ctypes.c_void_p(material.vertex_count*3*glm.sizeof(glm.float32)))
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * glm.sizeof(glm.float32), ctypes.c_void_p(3*glm.sizeof(glm.float32)))
     glEnableVertexAttribArray(1)
 
     return VAO

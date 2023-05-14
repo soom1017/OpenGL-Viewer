@@ -7,44 +7,49 @@ class Material:
         # print out obj file name
         print(f'obj file name: {os.path.basename(filename)}')
         # get vertex, face information from obj file
-        self.v, self.f, self.vn = self.load_obj(filename)
-        self.index_count = len(self.f[0])
-        self.vertex_count = len(self.v)
+        self.vertices = self.load_obj(filename)
+        self.vertex_count = len(self.vertices)
         
     def load_obj(self, filename):
-        vertexes = []
-        faces = [[], [], []]
+        vertices = []
+
+        positions = []
         normals = []
 
         num_face_tri = 0
         num_face_quad = 0
         num_face_n = 0
+        # open and parse obj file contents
         try:
             with open(filename) as file:
                 for line in file:
+                    # process vertex positions
                     if line.startswith("v "):
                         v = line.split()[1:]
-                        vertexes.append(list(map(float, v)))
-                        
+                        positions.append(list(map(float, v)))
+                    # process vertex normals
+                    elif line.startswith("vn "):
+                        vn = line.split()[1:]
+                        normals.append(list(map(float, vn)))
+                    # process face informations (vertex_pos_idx, texture_coor_idx, vertex_normal_idx)
                     elif line.startswith("f "):
                         f = line.split()[1:]
                         num_vertex = len(f)
                         for idx in range(1, num_vertex - 1):
                             for i in [0, idx, idx+1]:
                                 face = f[i].split('/')
-                                for j in range(len(face)):
-                                    if face[j] != '':
-                                        faces[j].append(int(face[j]) - 1)
+                                # face[0]: vertex_pos_idx
+                                vertices.append(positions[int(face[0]) - 1])
+                                # face[2]: vertex_normal_idx
+                                vertices.append(normals[int(face[2]) - 1])
+                        # count polygons        
                         if num_vertex == 3:
                             num_face_tri += 1
                         elif num_vertex == 4:
                             num_face_quad += 1
                         else:
                             num_face_n += 1
-
-                    elif line.startswith("vn "):
-                        vn = line.split()[1:]
-                        normals.append(list(map(float, vn)))
+                    
         except IOError:
             print(f"Error: Could not open file {file}")
             return None, None, None
@@ -54,17 +59,10 @@ class Material:
         print(f'number of faces with 4 vertices: {num_face_quad}')
         print(f'number of faces with more than 4 vertices: {num_face_n}')
         print('----------------------------------------------------------')
-        return vertexes, faces, normals
+        return vertices
     
     def get_vertex_pos_and_normal(self):
-        vertex_pos = np.array(self.v, dtype=np.float32)
-        vertex_normal = np.array(self.vn, dtype=np.float32)
-        result = glm.array(np.concatenate((vertex_pos, vertex_normal)))
-        return result
+        return glm.array(np.array(self.vertices, dtype=np.float32))
     
-    def get_vertex_indices(self):
-        vertex_index_pos = np.array(self.f[0], dtype=np.uint32)
-        vertex_index_normal = np.array(self.f[1], dtype=np.uint32)
-        result = glm.array(np.concatenate((vertex_index_pos, vertex_index_normal)))
-        return result   
-    
+    def get_vertex_count(self):
+        return self.vertex_count // 2

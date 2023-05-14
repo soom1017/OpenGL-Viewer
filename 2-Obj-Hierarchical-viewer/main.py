@@ -148,9 +148,9 @@ def draw_single_material(vao, VP, unif_locs):
     glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(unif_locs['material_color'], 1, 1, 1)
     
-    glDrawElements(GL_TRIANGLES, g_single_material.index_count, GL_UNSIGNED_INT, None)
+    glDrawArrays(GL_TRIANGLES, 0, g_single_material.get_vertex_count())
 
-def draw_node(vao, node, idx_count, VP, unif_locs):
+def draw_node(vao, node, vertex_count, VP, unif_locs):
     # apply global transform to node's transform
     M = node.get_global_transform() * node.get_shape_transform()
     MVP = VP * M
@@ -162,7 +162,7 @@ def draw_node(vao, node, idx_count, VP, unif_locs):
     glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(unif_locs['material_color'], color.r, color.g, color.b)
     
-    glDrawElements(GL_TRIANGLES, idx_count, GL_UNSIGNED_INT, None)
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count)
 
 # main function
 def main():
@@ -267,11 +267,11 @@ def main():
             # recursively update global transformations of all nodes
             node_base.update_tree_global_transform()
             
-            draw_node(vao_tray, node_base, tray.index_count, P*V, unif_locs_mat)
-            draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.index_count, P*V, unif_locs_mat)
-            draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.index_count, P*V, unif_locs_mat)
+            draw_node(vao_tray, node_base, tray.get_vertex_count(), P*V, unif_locs_mat)
+            draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.get_vertex_count(), P*V, unif_locs_mat)
+            draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.get_vertex_count(), P*V, unif_locs_mat)
             for i in range(6):
-                draw_node(vao_sword, nodes_sword[i], sword.index_count, P*V, unif_locs_mat)
+                draw_node(vao_sword, nodes_sword[i], sword.get_vertex_count(), P*V, unif_locs_mat)
 
         # swap front and back buffers
         glfwSwapBuffers(window)
