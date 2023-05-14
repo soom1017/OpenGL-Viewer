@@ -40,7 +40,6 @@ def get_view_matrix():
     
 def get_projection_matrix():
     width, height = 3200, 3200
-    glViewport(0, 0, width, height)
 
     if g_is_orthogonal:
         ortho_height = 10.
@@ -51,6 +50,7 @@ def get_projection_matrix():
         P = glm.perspective(45, aspect, 1, 20)
     return P
 
+# callbacks
 def key_callback(window, key, scancode, action, mods):
     global g_is_orthogonal, g_single_material, g_hierarchical_mode, g_wireframe_mode
     if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
@@ -114,6 +114,7 @@ def drag_and_drop_callback(window, paths):
     g_single_material = Material(paths[0])
     g_vao_single_material = prepare_vao_material(g_single_material)
 
+# draw functions
 def draw_center_frame(vao, MVP, MVP_loc):
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
     glBindVertexArray(vao)
@@ -137,10 +138,12 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glDrawArrays(GL_LINES, 0, 2)
 
 def draw_single_material(vao, VP, unif_locs):
+    # scale sample single meshes to smaller size
     M = glm.scale((0.5, 0.5, 0.5))
     MVP = VP * M
 
     glBindVertexArray(vao)
+    # set uniform values
     glUniformMatrix4fv(unif_locs['M'], 1, GL_FALSE, glm.value_ptr(M))
     glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(unif_locs['material_color'], 1, 1, 1)
@@ -148,17 +151,20 @@ def draw_single_material(vao, VP, unif_locs):
     glDrawElements(GL_TRIANGLES, g_single_material.index_count, GL_UNSIGNED_INT, None)
 
 def draw_node(vao, node, idx_count, VP, unif_locs):
+    # apply global transform to node's transform
     M = node.get_global_transform() * node.get_shape_transform()
     MVP = VP * M
     color = node.get_color()
 
     glBindVertexArray(vao)
+    # set uniform values
     glUniformMatrix4fv(unif_locs['M'], 1, GL_FALSE, glm.value_ptr(M))
     glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
     glUniform3f(unif_locs['material_color'], color.r, color.g, color.b)
     
     glDrawElements(GL_TRIANGLES, idx_count, GL_UNSIGNED_INT, None)
 
+# main function
 def main():
     # initialize glfw
     if not glfwInit():
