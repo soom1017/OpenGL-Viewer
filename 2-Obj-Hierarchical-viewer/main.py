@@ -26,7 +26,7 @@ g_azimuth = 60
 g_elevation = 30
 g_x_orbit_in, g_y_orbit_in = 0., 0.
 g_x_pan_in, g_y_pan_in = 0., 0.
-g_zoom = 5.
+g_zoom = 3.
 g_pan_vertical, g_pan_horizontal = 0., 0.
 
 g_cam_up = glm.normalize(glm.vec3(- np.sin(np.radians(30)) * np.sin(np.radians(60)), np.cos(np.radians(30)), - np.sin(np.radians(30)) * np.cos(np.radians(60))))
@@ -92,15 +92,15 @@ def button_callback(window, button, action, mod):
     global g_mouse_left_down, g_mouse_right_down, g_x_orbit_in, g_y_orbit_in, g_x_pan_in, g_y_pan_in
     if button==GLFW_MOUSE_BUTTON_LEFT:
         if action==GLFW_PRESS:
-            g_mouse_left_down = True
             g_x_orbit_in, g_y_orbit_in = glfwGetCursorPos(window)
+            g_mouse_left_down = True
         elif action==GLFW_RELEASE:
             g_mouse_left_down = False
 
     elif button==GLFW_MOUSE_BUTTON_RIGHT:
         if action==GLFW_PRESS:
-            g_mouse_right_down = True
             g_x_pan_in, g_y_pan_in = glfwGetCursorPos(window)
+            g_mouse_right_down = True
         elif action==GLFW_RELEASE:
             g_mouse_right_down = False
     
