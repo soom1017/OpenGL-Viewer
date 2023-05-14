@@ -67,10 +67,9 @@ out vec4 FragColor;
 uniform vec3 material_color;
 uniform vec3 view_pos;
 
-void main()
+vec3 calculateLight(vec3 light_pos)
 {
     // light and material properties
-    vec3 light_pos = vec3(3,2,4);
     vec3 light_color = vec3(1,1,1);
     float material_shininess = 32.0;
 
@@ -89,20 +88,30 @@ void main()
 
     // for diffiuse and specular
     vec3 normal = normalize(vout_normal);
-    vec3 surface_pos = vout_surface_pos;
-    vec3 light_dir = normalize(light_pos - surface_pos);
+    vec3 light_dir = normalize(light_pos - vout_surface_pos);
 
     // diffuse
     float diff = max(dot(normal, light_dir), 0);
     vec3 diffuse = diff * light_diffuse * material_diffuse;
 
     // specular
-    vec3 view_dir = normalize(view_pos - surface_pos);
+    vec3 view_dir = normalize(view_pos - vout_surface_pos);
     vec3 reflect_dir = reflect(-light_dir, normal);
     float spec = pow( max(dot(view_dir, reflect_dir), 0.0), material_shininess);
     vec3 specular = spec * light_specular * material_specular;
 
-    vec3 color = ambient + diffuse + specular;
+    return (ambient + diffuse + specular);
+}
+
+void main()
+{
+    // make and apply multiple light sources
+    vec3 light_pos1 = vec3(20, 2, 4);
+    vec3 light_pos2 = vec3(-30, 4, -50);
+    
+    vec3 color = vec3(0., 0., 0.);
+    color += calculateLight(light_pos1);
+    color += calculateLight(light_pos2);
     FragColor = vec4(color, 1.);
 }
 '''
