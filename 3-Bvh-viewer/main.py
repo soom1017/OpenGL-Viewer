@@ -111,6 +111,10 @@ def scroll_callback(window, xoffset, yoffset):
 
 def drag_and_drop_callback(window, paths):
     global g_my_character
+    if not paths[0].endswith('.bvh'):
+        print("Error: file extension must be (.bvh)")
+        print("------------------------------------")
+        return
     g_my_character = Character(paths[0])
     # g_vao_single_material = prepare_vao_material(g_single_material)
 

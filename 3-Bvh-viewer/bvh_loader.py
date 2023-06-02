@@ -88,6 +88,9 @@ class Character:
 
         # load and get information from bvh file
         self.data, self.num_frames, self.frame_time = load_bvh(filename)
+        if not self.num_frames:
+            print(f"Error: no frame information exists")
+            return
         self.joints = list(x["name"] for x in self.data["Joints"])
     
         # print out face informations
