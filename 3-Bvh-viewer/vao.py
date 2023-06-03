@@ -102,11 +102,11 @@ def prepare_vao_cube():
 
     return VAO
 
-def prepare_vao_line(character, joint):
+def prepare_vao_line():
     vertices = glm.array(glm.float32,
-        # position         
-        -1 ,  1 ,  0 , # start
-         1 , -1 ,  0 , # end
+        # position      # color   
+        0,  0,  0,       1.0, 0.0, 0.0, # start
+        1 , 1,  1,       1.0, 0.0, 0.0, # end
     )
 
     # create and activate VAO (vertex array object)
@@ -123,5 +123,9 @@ def prepare_vao_line(character, joint):
     # configure vertex positions
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * glm.sizeof(glm.float32), None)
     glEnableVertexAttribArray(0)
+
+    # configure vertex colors
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * glm.sizeof(glm.float32), ctypes.c_void_p(3*glm.sizeof(glm.float32)))
+    glEnableVertexAttribArray(1)
 
     return VAO

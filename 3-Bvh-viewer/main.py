@@ -4,14 +4,14 @@ import glm
 import numpy as np
 import os
 
-from vao import prepare_vao_frame, prepare_vao_cube
-from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
+from vao import prepare_vao_frame, prepare_vao_cube, prepare_vao_line
+from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_uniform_loc, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
 from bvh_loader import Character
 from hierarchy import Node
 
 g_character = None
 g_vao_node = None
-g_box_rendering_mode = False
+g_box_rendering_mode = True
 g_animate_mode = False
 
 # Manage inputs
@@ -111,7 +111,10 @@ def drag_and_drop_callback(window, paths):
         print("------------------------------------")
         return
     g_character = Character(paths[0])
-    g_vao_node = prepare_vao_cube()
+    if g_box_rendering_mode:
+        g_vao_node = prepare_vao_cube()
+    else:
+        g_vao_node = prepare_vao_line()
 
 # draw functions
 def draw_center_frame(vao, MVP, MVP_loc):
@@ -136,19 +139,28 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_line_node(vao, node, VP, MVP_loc):
+def draw_line_node(vao, node, VP, MVP_loc, upos_loc):
     # apply global transform to node's transform
-    M = node.get_global_transform()
+    if not node.parent:
+        return
+    M = node.parent.get_global_transform()
     MVP = VP * M
 
-    # set uniform values
+    # get child joint offset
+    offset = node.get_offset()
+
+        # set uniform values
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
+    glUniform3f(upos_loc, offset.x, offset.y, offset.z)
     glBindVertexArray(vao)
     glDrawArrays(GL_LINES, 0, 2)
-
+    
 def draw_cube_node(vao, node, VP, unif_locs):
     # apply global transform to node's transform
-    M = node.get_global_transform() * node.get_shape_transform()
+    if node.parent:
+        M = node.parent.get_global_transform() * node.get_shape_transform()
+    else:
+        M = node.get_global_transform() * node.get_shape_transform()
     MVP = VP * M
 
     # set uniform values
@@ -185,10 +197,13 @@ def main():
 
     # load shaders
     shader_for_frame = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
+    shader_for_line = load_shaders(g_vertex_shader_src_uniform_loc, g_fragment_shader_src)
     shader_for_cube = load_shaders(g_vertex_shader_src_normal, g_fragment_shader_src_normal)
 
     # get uniform locations
     MVP_loc_frame = glGetUniformLocation(shader_for_frame, 'MVP')
+    MVP_loc_line = glGetUniformLocation(shader_for_line, 'MVP')
+    upos_loc_line = glGetUniformLocation(shader_for_line, 'u_pos')
     unif_names = ['MVP', 'M', 'view_pos', 'material_color']
     unif_locs_cube = {}
     for name in unif_names:
@@ -215,12 +230,18 @@ def main():
         draw_frame_grid(vao_frame_grid, P*V*M, MVP_loc_frame)
 
         if g_character:
-            glUseProgram(shader_for_cube)
-            glUniform3f(unif_locs_cube['view_pos'], view_pos.x, view_pos.y, view_pos.z)
-
             nodes = g_character.get_nodes()
-            for node in nodes:
-                draw_cube_node(g_vao_node, node, P*V, unif_locs_cube)
+            if g_box_rendering_mode:
+                glUseProgram(shader_for_cube)
+                glUniform3f(unif_locs_cube['view_pos'], view_pos.x, view_pos.y, view_pos.z)
+
+                for node in nodes:
+                    draw_cube_node(g_vao_node, node, P*V, unif_locs_cube)
+            else:
+                glUseProgram(shader_for_line)
+                
+                for node in nodes:
+                    draw_line_node(g_vao_node, node, P*V, MVP_loc_line, upos_loc_line)
 
         # swap front and back buffers
         glfwSwapBuffers(window)

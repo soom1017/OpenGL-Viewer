@@ -6,8 +6,8 @@ def load_bvh(filename):
     # open and parse bvh file contents
     motion_data = False
     end_site = False
-    channel_str_to_idx = {'XPOSITION': 0, 'YPOSITION': 1, 'ZPOSITION': 2, 
-                          'XROTATION': glm.vec3(1, 0, 0), 'YROTATION': glm.vec3(0, 1, 0), 'ZROTATION': glm.vec3(0, 0, 1)}
+    channel_str_to_value = {'XPOSITION': 0, 'YPOSITION': 1, 'ZPOSITION': 2, 
+                            'XROTATION': glm.vec3(1, 0, 0), 'YROTATION': glm.vec3(0, 1, 0), 'ZROTATION': glm.vec3(0, 0, 1)}
     parents = []        # stack, to store parent idx in child
     current_idx = 0
     
@@ -70,7 +70,7 @@ def load_bvh(filename):
                     else:
                         data["Joints"][-1]["offset"] = list(map(float, values[1:]))
                 elif "CHANNELS" in line:
-                    data["Joints"][-1]["channels"] = list(map(lambda x: channel_str_to_idx[x], values[2:]))
+                    data["Joints"][-1]["channels"] = list(map(lambda x: channel_str_to_value[x], values[2:]))
                 elif "End Site" in line:
                     end_site = True
                 elif "}" in line:
@@ -107,37 +107,50 @@ class Character:
 
         # create a hirarchical model - Node(parent, link_transform_from_parent, shape_transform)
         self.nodes = []
+        end_nodes = []
         for idx, joint in enumerate(self.data["Joints"]):
             xoff, yoff, zoff = joint["offset"]
             channels = joint["channels"]
 
             if joint["parent"] == None:         # ROOT
-                xpos = self.data["Motions"][0][idx+channels[0]]
-                ypos = self.data["Motions"][0][idx+channels[1]]
-                zpos = self.data["Motions"][0][idx+channels[2]]
-                ang1 = glm.radians(self.data["Motions"][0][idx+3])
-                ang2 = glm.radians(self.data["Motions"][0][idx+4])
-                ang3 = glm.radians(self.data["Motions"][0][idx+5])
+                xpos = self.data["Motions"][0][0]
+                ypos = self.data["Motions"][0][1]
+                zpos = self.data["Motions"][0][2]
+                ang1 = glm.radians(self.data["Motions"][0][3])
+                ang2 = glm.radians(self.data["Motions"][0][4])
+                ang3 = glm.radians(self.data["Motions"][0][5])
                 node = Node(None, 
                             glm.translate((xpos, ypos, zpos)) * glm.rotate(ang1, channels[3]) * glm.rotate(ang2, channels[4]) * glm.rotate(ang3, channels[5]), 
                             glm.scale((.01, .01, .01)))
             else:
-                ang1 = glm.radians(self.data["Motions"][0][idx+0])
-                ang2 = glm.radians(self.data["Motions"][0][idx+1])
-                ang3 = glm.radians(self.data["Motions"][0][idx+2])
-                # local frame의 x축을 (xoff, yoff, zoff)와 같아지게 회전
-                x_axis = glm.vec3(1,0,0)
-                point = glm.vec3(xoff, yoff, zoff)
-                dist = glm.distance(point, glm.vec3())
-                ang = glm.acos(glm.dot(x_axis, glm.normalize(point)))
-                axis = glm.normalize(glm.cross(x_axis, point))
-                R = glm.rotate(glm.mat4(1.0), ang, axis)
+                ang1 = glm.radians(self.data["Motions"][0][6 + (idx-1)*3+0])
+                ang2 = glm.radians(self.data["Motions"][0][6 + (idx-1)*3+1])
+                ang3 = glm.radians(self.data["Motions"][0][6 + (idx-1)*3+2])
+                # for box rendering, box should be (parent's offset ~ current offset), along x-axis
+                # rotate local frame's x-axis to be equal orientation, with vector (current offset - parent's offset)
+                dist, R = self.get_box_transformation(xoff, yoff, zoff)
                 node = Node(self.nodes[joint["parent"]],
                             glm.translate((xoff, yoff, zoff)) * glm.rotate(ang1, channels[0]) * glm.rotate(ang2, channels[1]) * glm.rotate(ang3, channels[2]),
-                            glm.scale((0.01, 0.01, 0.01)))
+                            R * glm.translate((dist/2, 0, 0)) * glm.scale((dist/2, .03, .03)))
+                node.set_offset(glm.vec3(xoff, yoff, zoff))
             self.nodes.append(node)
+            if joint["endoffset"]:
+                xoff, yoff, zoff = joint["endoffset"]
+                dist, R = self.get_box_transformation(xoff, yoff, zoff)
+                node = Node(self.nodes[-1], glm.translate((xoff, yoff, zoff)), R * glm.translate((dist/2, 0, 0)) * glm.scale((dist/2, .03, .03)))
+                end_nodes.append(node)
         # recursively update global transformations of all nodes
+        self.nodes += end_nodes
         self.nodes[0].update_tree_global_transform()
 
+    def get_box_transformation(self, xoff, yoff, zoff):
+        x_axis = glm.vec3(1,0,0)
+        vec = glm.vec3(xoff, yoff, zoff)
+        dist = glm.distance(vec, glm.vec3())
+        angle = glm.acos(glm.dot(x_axis, glm.normalize(vec)))
+        axis = glm.normalize(glm.cross(x_axis, vec))
+        R = glm.rotate(angle, axis)
+        return dist, R
+    
     def get_nodes(self):
         return self.nodes
