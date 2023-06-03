@@ -70,7 +70,7 @@ def load_bvh(filename):
                     else:
                         data["Joints"][-1]["offset"] = list(map(float, values[1:]))
                 elif "CHANNELS" in line:
-                    data["Joints"][-1]["channels"] = list(map(lambda x: channel_str_to_value[x], values[2:]))
+                    data["Joints"][-1]["channels"] = list(map(lambda x: channel_str_to_value[x.upper()], values[2:]))
                 elif "End Site" in line:
                     end_site = True
                 elif "}" in line:

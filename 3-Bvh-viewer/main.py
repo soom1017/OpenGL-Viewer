@@ -2,12 +2,10 @@ from OpenGL.GL import *
 from glfw.GLFW import *
 import glm
 import numpy as np
-import os
 
 from vao import prepare_vao_frame, prepare_vao_cube, prepare_vao_line
 from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
 from bvh_loader import Character
-from hierarchy import Node
 
 g_character = None
 g_vao_node = None
