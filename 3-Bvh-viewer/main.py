@@ -50,7 +50,7 @@ def get_projection_matrix():
 
 # callbacks
 def key_callback(window, key, scancode, action, mods):
-    global g_is_orthogonal, g_box_rendering_mode
+    global g_is_orthogonal, g_box_rendering_mode, g_animate_mode
     if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     else:
@@ -61,6 +61,8 @@ def key_callback(window, key, scancode, action, mods):
                 g_box_rendering_mode = False
             if key==GLFW_KEY_2:
                 g_box_rendering_mode = True
+            if key==GLFW_KEY_SPACE:
+                g_animate_mode = True
 
 def cursor_callback(window, xpos, ypos):
     global g_azimuth, g_elevation, g_pan_horizontal, g_pan_vertical, g_cam_up, g_cam_front, g_cam_target, g_x_orbit_in, g_y_orbit_in, g_x_pan_in, g_y_pan_in
@@ -230,7 +232,13 @@ def main():
         draw_frame_grid(vao_frame_grid, P*V*M, MVP_loc_frame)
 
         if g_character:
-            nodes = g_character.get_nodes()
+
+            if g_animate_mode:
+                t = glfwGetTime()
+                frame = int(t / g_character.frame_time) % g_character.num_frames
+            else:
+                frame = 0
+            nodes = g_character.get_nodes(frame)
             if g_box_rendering_mode:
                 glUseProgram(shader_for_cube)
                 glUniform3f(unif_locs_cube['view_pos'], view_pos.x, view_pos.y, view_pos.z)
