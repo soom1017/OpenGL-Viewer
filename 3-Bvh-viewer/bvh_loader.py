@@ -133,7 +133,6 @@ class Character:
                 node = Node(nodes[joint["parent"]],
                             glm.translate((xoff, yoff, zoff)) * glm.rotate(ang1, channels[0]) * glm.rotate(ang2, channels[1]) * glm.rotate(ang3, channels[2]),
                             R * glm.translate((dist/2, 0, 0)) * glm.scale((dist/2, .03, .03)))
-                node.set_offset(glm.vec3(xoff, yoff, zoff))
             nodes.append(node)
             if joint["endoffset"]:
                 xoff, yoff, zoff = joint["endoffset"]
@@ -154,3 +153,29 @@ class Character:
         axis = glm.normalize(glm.cross(x_axis, vec))
         R = glm.rotate(angle, axis)
         return dist, R
+    
+    def get_rest_nodes(self):
+        # create a hirarchical model - Node(parent, link_transform_from_parent, shape_transform)
+        nodes = []
+        end_nodes = []
+        for idx, joint in enumerate(self.data["Joints"]):
+            xoff, yoff, zoff = joint["offset"]
+
+            if joint["parent"] == None:         # ROOT
+                node = Node(None, glm.translate((0,0,0)), glm.scale((.01, .01, .01)))
+            else:
+                # for box rendering, box should be (parent's offset ~ current offset), along x-axis
+                # rotate local frame's x-axis to be equal orientation, with vector (current offset - parent's offset)
+                dist, R = self.get_box_transformation(xoff, yoff, zoff)
+                node = Node(nodes[joint["parent"]], glm.translate((xoff, yoff, zoff)), R * glm.translate((dist/2, 0, 0)) * glm.scale((dist/2, .03, .03)))
+            nodes.append(node)
+            if joint["endoffset"]:
+                xoff, yoff, zoff = joint["endoffset"]
+                dist, R = self.get_box_transformation(xoff, yoff, zoff)
+                node = Node(nodes[-1], glm.translate((xoff, yoff, zoff)), R * glm.translate((dist/2, 0, 0)) * glm.scale((dist/2, .03, .03)))
+                end_nodes.append(node)
+        # recursively update global transformations of all nodes
+        nodes += end_nodes
+        nodes[0].update_tree_global_transform()
+
+        return nodes

@@ -231,9 +231,10 @@ def main():
             if g_animate_mode:
                 t = glfwGetTime()
                 frame = int(t / g_character.frame_time) % g_character.num_frames
+                nodes = g_character.get_nodes(frame)
             else:
-                frame = 0
-            nodes = g_character.get_nodes(frame)
+                nodes = g_character.get_rest_nodes()
+            
             if g_box_rendering_mode:
                 glUseProgram(shader_for_cube)
                 glUniform3f(unif_locs_cube['view_pos'], view_pos.x, view_pos.y, view_pos.z)
