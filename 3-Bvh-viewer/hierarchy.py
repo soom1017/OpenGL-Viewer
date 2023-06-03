@@ -1,7 +1,7 @@
 import glm
 
 class Node:
-    def __init__(self, parent, shape_transform, color):
+    def __init__(self, parent, link_transform_from_parent, shape_transform):
         # hierarchy
         self.parent = parent
         self.children = []
@@ -9,21 +9,21 @@ class Node:
             parent.children.append(self)
 
         # transform
-        self.transform = glm.mat4()
+        self.link_transform_from_parent = link_transform_from_parent
+        self.joint_transform = glm.mat4()
         self.global_transform = glm.mat4()
 
         # shape
         self.shape_transform = shape_transform
-        self.color = color
 
-    def set_transform(self, transform):
-        self.transform = transform
+    def set_joint_transform(self, joint_transform):
+        self.joint_transform = joint_transform
 
     def update_tree_global_transform(self):
         if self.parent is not None:
-            self.global_transform = self.parent.get_global_transform() * self.transform
+            self.global_transform = self.parent.get_global_transform() * self.link_transform_from_parent * self.joint_transform
         else:
-            self.global_transform = self.transform
+            self.global_transform = self.link_transform_from_parent * self.joint_transform
 
         for child in self.children:
             child.update_tree_global_transform()
@@ -32,5 +32,3 @@ class Node:
         return self.global_transform
     def get_shape_transform(self):
         return self.shape_transform
-    def get_color(self):
-        return self.color

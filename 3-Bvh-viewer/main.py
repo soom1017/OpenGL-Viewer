@@ -4,17 +4,15 @@ import glm
 import numpy as np
 import os
 
-from vao import prepare_vao_frame, prepare_vao_material
-from shader import load_shaders, g_vertex_shader_src, g_fragment_shader_src
+from vao import prepare_vao_frame, prepare_vao_cube
+from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
 from bvh_loader import Character
 from hierarchy import Node
 
-PROJECT_DIR = os.path.dirname( os.path.abspath( __file__ ) )
-
-g_my_character = None
-g_vao_single_material = None
-g_hierarchical_mode = False
-g_wireframe_mode = False
+g_character = None
+g_vao_node = None
+g_box_rendering_mode = False
+g_animate_mode = False
 
 # Manage inputs
 g_mouse_left_down = False
@@ -52,20 +50,17 @@ def get_projection_matrix():
 
 # callbacks
 def key_callback(window, key, scancode, action, mods):
-    global g_is_orthogonal, g_single_material, g_hierarchical_mode, g_wireframe_mode
+    global g_is_orthogonal, g_box_rendering_mode
     if key==GLFW_KEY_ESCAPE and action==GLFW_PRESS:
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     else:
         if action==GLFW_PRESS or action==GLFW_REPEAT:
             if key==GLFW_KEY_V:
                 g_is_orthogonal = not g_is_orthogonal
-            if key==GLFW_KEY_H:
-                g_single_material = None
-                g_hierarchical_mode = True
-            if key==GLFW_KEY_Z:
-                g_wireframe_mode = not g_wireframe_mode
             if key==GLFW_KEY_1:
-                print(f"g_cam_front: {g_cam_target - g_cam_front * g_zoom}, g_cam_target: {g_cam_target}, g_cam_up: {g_cam_up}")
+                g_box_rendering_mode = False
+            if key==GLFW_KEY_2:
+                g_box_rendering_mode = True
 
 def cursor_callback(window, xpos, ypos):
     global g_azimuth, g_elevation, g_pan_horizontal, g_pan_vertical, g_cam_up, g_cam_front, g_cam_target, g_x_orbit_in, g_y_orbit_in, g_x_pan_in, g_y_pan_in
@@ -110,13 +105,13 @@ def scroll_callback(window, xoffset, yoffset):
     g_zoom = max(g_zoom - yoffset * .1, 1.)
 
 def drag_and_drop_callback(window, paths):
-    global g_my_character
+    global g_character, g_vao_node
     if not paths[0].endswith('.bvh'):
         print("Error: file extension must be (.bvh)")
         print("------------------------------------")
         return
-    g_my_character = Character(paths[0])
-    # g_vao_single_material = prepare_vao_material(g_single_material)
+    g_character = Character(paths[0])
+    g_vao_node = prepare_vao_cube()
 
 # draw functions
 def draw_center_frame(vao, MVP, MVP_loc):
@@ -141,32 +136,28 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_single_material(vao, VP, unif_locs):
-    # scale sample single meshes to smaller size
-    M = glm.scale((0.5, 0.5, 0.5))
+def draw_line_node(vao, node, VP, MVP_loc):
+    # apply global transform to node's transform
+    M = node.get_global_transform()
     MVP = VP * M
 
-    glBindVertexArray(vao)
     # set uniform values
-    glUniformMatrix4fv(unif_locs['M'], 1, GL_FALSE, glm.value_ptr(M))
-    glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
-    glUniform3f(unif_locs['material_color'], 1, 1, 1)
-    
-    glDrawArrays(GL_TRIANGLES, 0, g_single_material.get_vertex_count())
+    glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
+    glBindVertexArray(vao)
+    glDrawArrays(GL_LINES, 0, 2)
 
-def draw_node(vao, node, vertex_count, VP, unif_locs):
+def draw_cube_node(vao, node, VP, unif_locs):
     # apply global transform to node's transform
     M = node.get_global_transform() * node.get_shape_transform()
     MVP = VP * M
-    color = node.get_color()
 
-    glBindVertexArray(vao)
     # set uniform values
     glUniformMatrix4fv(unif_locs['M'], 1, GL_FALSE, glm.value_ptr(M))
     glUniformMatrix4fv(unif_locs['MVP'], 1, GL_FALSE, glm.value_ptr(MVP))
-    glUniform3f(unif_locs['material_color'], color.r, color.g, color.b)
-    
-    glDrawArrays(GL_TRIANGLES, 0, vertex_count)
+    glUniform3f(unif_locs['material_color'], 1., 0., 0.)
+
+    glBindVertexArray(vao)
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, None)
 
 # main function
 def main():
@@ -193,36 +184,19 @@ def main():
     glfwSetDropCallback(window, drag_and_drop_callback)
 
     # load shaders
-    shader_program = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
+    shader_for_frame = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
+    shader_for_cube = load_shaders(g_vertex_shader_src_normal, g_fragment_shader_src_normal)
 
     # get uniform locations
-    MVP_loc_frame = glGetUniformLocation(shader_program, 'MVP')
-
-    # load materials for hierarchical model
-    # tray = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Tray.obj'))
-    # spinning_top1 = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Top_jack.obj'))
-    # spinning_top2 = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Jack_in_the_Box.obj'))
-    # sword = Material(os.path.join(PROJECT_DIR, 'obj_files', 'Sword.obj'))
+    MVP_loc_frame = glGetUniformLocation(shader_for_frame, 'MVP')
+    unif_names = ['MVP', 'M', 'view_pos', 'material_color']
+    unif_locs_cube = {}
+    for name in unif_names:
+        unif_locs_cube[name] = glGetUniformLocation(shader_for_cube, name)
 
     # prepare vaos
     vao_center_frame = prepare_vao_frame(coordinate_axis=True)
     vao_frame_grid = prepare_vao_frame(coordinate_axis=False)
-    # vao_tray = prepare_vao_material(tray)
-    # vao_spinning_top1 = prepare_vao_material(spinning_top1)
-    # vao_spinning_top2 = prepare_vao_material(spinning_top2)
-    # vao_sword = prepare_vao_material(sword)
-
-    # # create a hierarchical model - Node(parent, shape_transform, color)
-    # node_base = Node(None, glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.3, .3, .3)), glm.vec3(0,0,0.5))
-    # node_spinning_top1 = Node(node_base, glm.translate((-1.05,0.1,0.7)) * glm.rotate(np.radians(270), (1, 0, 0)) * glm.scale((.1, .1, .1)), glm.vec3(0.9294, 0.6745, 0.6941))
-    # node_spinning_top2 = Node(node_base, glm.translate((0.3,0.08,-0.1)) * glm.scale((.25, .25, .25)), glm.vec3(0.2902, 0.6588, 0.8471))
-    # nodes_sword = []
-    # for i in range(3):
-    #     node_sword = Node(node_spinning_top1, glm.rotate(np.radians(90), (1, 0, 0)) * glm.scale((0.008, 0.008, 0.008)), glm.vec3(1, 0, 0))
-    #     nodes_sword.append(node_sword)
-    # for i in range(3):
-    #     node_sword = Node(node_spinning_top2, glm.rotate(np.radians(90), (1, 0, 0)) * glm.scale((0.008, 0.008, 0.008)), glm.vec3(1, 0, 0))
-    #     nodes_sword.append(node_sword)
 
     # loop until the user closes the window
     while not glfwWindowShouldClose(window):
@@ -230,7 +204,7 @@ def main():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glEnable(GL_DEPTH_TEST)
 
-        glUseProgram(shader_program)
+        glUseProgram(shader_for_frame)
 
         # projection & view matrix
         P = get_projection_matrix()
@@ -240,28 +214,13 @@ def main():
         draw_center_frame(vao_center_frame, P*V*M, MVP_loc_frame)
         draw_frame_grid(vao_frame_grid, P*V*M, MVP_loc_frame)
 
-        # if g_single_material:
-        #     pass
-        # elif g_hierarchical_mode:
-        #     t = glfwGetTime()
+        if g_character:
+            glUseProgram(shader_for_cube)
+            glUniform3f(unif_locs_cube['view_pos'], view_pos.x, view_pos.y, view_pos.z)
 
-            # # set local transformations of each node
-            # node_base.set_transform(glm.rotate(np.radians(np.sin(t) * 30), (1,0,0)))
-            # node_spinning_top1.set_transform(glm.rotate(t * 1, (0,1,0)) * glm.translate((np.sin(t) * 0.4, 0, np.sin(t) * 0.4)) * glm.rotate(t * 1, (0,1,0)))
-            # node_spinning_top2.set_transform(glm.rotate(t * 2, (0,1,0)) * glm.translate((np.cos(t) * 0.8, 0, np.cos(t) * 0.8)) * glm.rotate(t * 2, (0,1,0)))
-            # for i in range(6):
-            #     sign1 = 1 if i % 2 == 0 else -1
-            #     sign2 = 1 if i % 3 == 0 else -1
-            #     nodes_sword[i].set_transform(glm.translate((sign1 * 0.15, 0.8 + sign1 * np.sin(t * 5) * 0.1, sign1 * sign2 * 0.15)))
-
-            # # recursively update global transformations of all nodes
-            # node_base.update_tree_global_transform()
-            
-            # draw_node(vao_tray, node_base, tray.get_vertex_count(), P*V, unif_locs_mat)
-            # draw_node(vao_spinning_top1, node_spinning_top1, spinning_top1.get_vertex_count(), P*V, unif_locs_mat)
-            # draw_node(vao_spinning_top2, node_spinning_top2, spinning_top2.get_vertex_count(), P*V, unif_locs_mat)
-            # for i in range(6):
-            #     draw_node(vao_sword, nodes_sword[i], sword.get_vertex_count(), P*V, unif_locs_mat)
+            nodes = g_character.get_nodes()
+            for node in nodes:
+                draw_cube_node(g_vao_node, node, P*V, unif_locs_cube)
 
         # swap front and back buffers
         glfwSwapBuffers(window)
