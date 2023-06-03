@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 from vao import prepare_vao_frame, prepare_vao_cube, prepare_vao_line
-from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_uniform_loc, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
+from shader import load_shaders, g_vertex_shader_src, g_vertex_shader_src_normal, g_fragment_shader_src, g_fragment_shader_src_normal
 from bvh_loader import Character
 from hierarchy import Node
 
@@ -24,7 +24,7 @@ g_azimuth = 60
 g_elevation = 30
 g_x_orbit_in, g_y_orbit_in = 0., 0.
 g_x_pan_in, g_y_pan_in = 0., 0.
-g_zoom = 3.
+g_zoom = 4.
 g_pan_vertical, g_pan_horizontal = 0., 0.
 
 g_cam_up = glm.normalize(glm.vec3(- np.sin(np.radians(30)) * np.sin(np.radians(60)), np.cos(np.radians(30)), - np.sin(np.radians(30)) * np.cos(np.radians(60))))
@@ -107,11 +107,12 @@ def scroll_callback(window, xoffset, yoffset):
     g_zoom = max(g_zoom - yoffset * .1, 1.)
 
 def drag_and_drop_callback(window, paths):
-    global g_character, g_vao_node
+    global g_character, g_vao_node, g_animate_mode
     if not paths[0].endswith('.bvh'):
         print("Error: file extension must be (.bvh)")
         print("------------------------------------")
         return
+    g_animate_mode = False
     g_character = Character(paths[0])
     if g_box_rendering_mode:
         g_vao_node = prepare_vao_cube()
@@ -141,19 +142,16 @@ def draw_frame_grid(vao, MVP, MVP_loc):
         glBindVertexArray(vao)
         glDrawArrays(GL_LINES, 0, 2)
 
-def draw_line_node(vao, node, VP, MVP_loc, upos_loc):
+def draw_line_node(vao, node, VP, MVP_loc):
     # apply global transform to node's transform
-    if not node.parent:
-        return
-    M = node.parent.get_global_transform()
+    if node.parent:
+        M = node.parent.get_global_transform() * node.get_shape_transform()
+    else:
+        M = node.get_global_transform() * node.get_shape_transform()
     MVP = VP * M
 
-    # get child joint offset
-    offset = node.get_offset()
-
-        # set uniform values
+    # set uniform values
     glUniformMatrix4fv(MVP_loc, 1, GL_FALSE, glm.value_ptr(MVP))
-    glUniform3f(upos_loc, offset.x, offset.y, offset.z)
     glBindVertexArray(vao)
     glDrawArrays(GL_LINES, 0, 2)
     
@@ -199,13 +197,10 @@ def main():
 
     # load shaders
     shader_for_frame = load_shaders(g_vertex_shader_src, g_fragment_shader_src)
-    shader_for_line = load_shaders(g_vertex_shader_src_uniform_loc, g_fragment_shader_src)
     shader_for_cube = load_shaders(g_vertex_shader_src_normal, g_fragment_shader_src_normal)
 
     # get uniform locations
     MVP_loc_frame = glGetUniformLocation(shader_for_frame, 'MVP')
-    MVP_loc_line = glGetUniformLocation(shader_for_line, 'MVP')
-    upos_loc_line = glGetUniformLocation(shader_for_line, 'u_pos')
     unif_names = ['MVP', 'M', 'view_pos', 'material_color']
     unif_locs_cube = {}
     for name in unif_names:
@@ -246,10 +241,10 @@ def main():
                 for node in nodes:
                     draw_cube_node(g_vao_node, node, P*V, unif_locs_cube)
             else:
-                glUseProgram(shader_for_line)
+                glUseProgram(shader_for_frame)
                 
                 for node in nodes:
-                    draw_line_node(g_vao_node, node, P*V, MVP_loc_line, upos_loc_line)
+                    draw_line_node(g_vao_node, node, P*V, MVP_loc_frame)
 
         # swap front and back buffers
         glfwSwapBuffers(window)

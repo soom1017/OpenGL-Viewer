@@ -106,7 +106,7 @@ def prepare_vao_line():
     vertices = glm.array(glm.float32,
         # position      # color   
         0,  0,  0,       1.0, 0.0, 0.0, # start
-        1 , 1,  1,       1.0, 0.0, 0.0, # end
+        1 , 0,  0,       1.0, 0.0, 0.0, # end
     )
 
     # create and activate VAO (vertex array object)
