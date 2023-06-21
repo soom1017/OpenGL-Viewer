@@ -163,4 +163,4 @@ cython_debug/
 *.docx
 *.pdf
 # Assignment sample obj files
-obj_files/
+# obj_files/
